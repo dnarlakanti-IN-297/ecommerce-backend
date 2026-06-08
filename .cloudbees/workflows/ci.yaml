@@ -1,0 +1,63 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  scm-token-own: read
+  id-token: read
+
+jobs:
+  test:
+    steps:
+      - name: Checkout code
+        uses: cloudbees-io/checkout@v1
+
+      - name: Run backend tests
+        uses: docker://python:3.11-slim
+        shell: sh
+        run: |
+          pip install --no-cache-dir -r requirements.txt
+          pytest tests/ -v --junit-xml=test-results.xml || true
+
+      - name: Publish test results
+        uses: cloudbees-io/publish-test-results@v2
+        with:
+          test-type: JUNIT
+          results-path: test-results.xml
+
+  build:
+    needs: test
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      GIT_COMMIT_SHA: ${{ cloudbees.scm.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: cloudbees-io/checkout@v1
+
+      - name: Configure Docker Hub credentials
+        uses: cloudbees-io/configure-oci-credentials@v1
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Backend Image
+        uses: cloudbees-io/kaniko@v1
+        with:
+          context: .
+          destination: ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-backend:${{ cloudbees.scm.sha }},${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-backend:latest
+
+      - name: Output image tags
+        uses: docker://alpine:latest
+        shell: sh
+        run: |
+          echo "✅ Backend image built and pushed:"
+          echo "$DOCKERHUB_USERNAME/ecommerce-backend:$GIT_COMMIT_SHA"
