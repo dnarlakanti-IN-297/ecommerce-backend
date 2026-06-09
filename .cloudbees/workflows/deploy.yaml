@@ -49,42 +49,38 @@ jobs:
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
 
-      - name: Determine namespace
+      - name: Create namespace if not exists
         uses: docker://alpine:latest
         shell: sh
         run: |
+          apk add --no-cache curl
+          curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl && mv kubectl /usr/local/bin/
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_BASE64" | base64 -d > ~/.kube/config
+
           case "$ENVIRONMENT" in
-            dev)
-              NAMESPACE="ecommerce-dev"
-              ;;
-            staging)
-              NAMESPACE="ecommerce-staging"
-              ;;
-            prod)
-              NAMESPACE="ecommerce-prod"
-              ;;
-            *)
-              echo "❌ Unknown environment: $ENVIRONMENT"
-              exit 1
-              ;;
+            dev) NAMESPACE="ecommerce-dev" ;;
+            staging) NAMESPACE="ecommerce-staging" ;;
+            prod) NAMESPACE="ecommerce-prod" ;;
+            *) echo "❌ Unknown environment: $ENVIRONMENT"; exit 1 ;;
           esac
 
-          echo "NAMESPACE=$NAMESPACE" >> $CLOUDBEES_OUTPUTS/namespace
           echo "✅ Deploying backend to namespace: $NAMESPACE"
-
-      - name: Create namespace if not exists
-        uses: docker://google/cloud-sdk:alpine
-        shell: sh
-        run: |
-          NAMESPACE=$(cat $CLOUDBEES_OUTPUTS/namespace)
           kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
           echo "✅ Namespace $NAMESPACE ready"
+        env:
+          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
 
       - name: Deploy backend with Helm
         uses: docker://alpine/helm:latest
         shell: sh
         run: |
-          NAMESPACE=$(cat $CLOUDBEES_OUTPUTS/namespace)
+          case "$ENVIRONMENT" in
+            dev) NAMESPACE="ecommerce-dev" ;;
+            staging) NAMESPACE="ecommerce-staging" ;;
+            prod) NAMESPACE="ecommerce-prod" ;;
+          esac
 
           echo "🚀 Deploying backend version: $IMAGE_TAG"
           echo "📍 Environment: $ENVIRONMENT"
@@ -110,10 +106,20 @@ jobs:
           echo "✅ Backend deployment successful!"
 
       - name: Verify backend deployment
-        uses: docker://google/cloud-sdk:alpine
+        uses: docker://alpine:latest
         shell: sh
         run: |
-          NAMESPACE=$(cat $CLOUDBEES_OUTPUTS/namespace)
+          apk add --no-cache curl
+          curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl && mv kubectl /usr/local/bin/
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_BASE64" | base64 -d > ~/.kube/config
+
+          case "$ENVIRONMENT" in
+            dev) NAMESPACE="ecommerce-dev" ;;
+            staging) NAMESPACE="ecommerce-staging" ;;
+            prod) NAMESPACE="ecommerce-prod" ;;
+          esac
 
           echo "📊 Checking backend pods..."
           kubectl get pods -n $NAMESPACE -l app=ecommerce-backend
@@ -126,12 +132,24 @@ jobs:
             --timeout=300s
 
           echo "✅ Backend is running!"
+        env:
+          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
 
       - name: Test backend health
-        uses: docker://google/cloud-sdk:alpine
+        uses: docker://alpine:latest
         shell: sh
         run: |
-          NAMESPACE=$(cat $CLOUDBEES_OUTPUTS/namespace)
+          apk add --no-cache curl
+          curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl"
+          chmod +x kubectl && mv kubectl /usr/local/bin/
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_BASE64" | base64 -d > ~/.kube/config
+
+          case "$ENVIRONMENT" in
+            dev) NAMESPACE="ecommerce-dev" ;;
+            staging) NAMESPACE="ecommerce-staging" ;;
+            prod) NAMESPACE="ecommerce-prod" ;;
+          esac
 
           echo "🏥 Testing backend health endpoint..."
 
@@ -142,3 +160,5 @@ jobs:
           kubectl exec -n $NAMESPACE $BACKEND_POD -- wget -qO- http://localhost:5000/health || echo "Health check skipped"
 
           echo "✅ Backend health check complete!"
+        env:
+          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
