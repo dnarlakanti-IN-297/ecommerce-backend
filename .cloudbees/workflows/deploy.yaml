@@ -97,7 +97,7 @@ jobs:
             --namespace $NAMESPACE \
             --values $VALUES_FILE \
             --set backend.image.repository=$DOCKERHUB_USERNAME/ecommerce-backend \
-            --set backend.image.tag=$IMAGE_TAG \
+            --set backend.image.tag=latest \
             --set frontend.enabled=false \
             --set database.enabled=false \
             --set ingress.enabled=false \
