@@ -55,9 +55,7 @@ jobs:
           context: .
           destination: ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-backend:${{ cloudbees.scm.sha }},${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-backend:latest
 
-      - name: Output image tags
-        uses: docker://alpine:latest
-        shell: sh
-        run: |
-          echo "✅ Backend image built and pushed:"
-          echo "$DOCKERHUB_USERNAME/ecommerce-backend:$GIT_COMMIT_SHA"
+      - name: Publish artifact
+        uses: cloudbees-io/publish-evidence-item@v1
+        with:
+          content: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-backend:${{ cloudbees.scm.sha }}
