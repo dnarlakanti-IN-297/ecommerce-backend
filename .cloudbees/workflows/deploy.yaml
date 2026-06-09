@@ -184,7 +184,7 @@ jobs:
           BACKEND_POD=$(kubectl get pod -n $NAMESPACE -l app=ecommerce-backend -o jsonpath='{.items[0].metadata.name}')
 
           # Test health endpoint
-          kubectl exec -n $NAMESPACE $BACKEND_POD -- wget -qO- http://localhost:5000/health || echo "Health check skipped"
+          kubectl exec -n $NAMESPACE $BACKEND_POD -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"
 
           echo "✅ Backend health check complete!"
         env:
