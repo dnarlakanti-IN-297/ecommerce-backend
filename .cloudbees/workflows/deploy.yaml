@@ -100,6 +100,7 @@ jobs:
             --set backend.image.tag=$IMAGE_TAG \
             --set frontend.enabled=false \
             --set database.enabled=false \
+            --set ingress.enabled=false \
             --wait \
             --timeout 5m
 
