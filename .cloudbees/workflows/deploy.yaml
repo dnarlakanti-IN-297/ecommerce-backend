@@ -98,10 +98,10 @@ jobs:
             --values $VALUES_FILE \
             --set backend.image.repository=$DOCKERHUB_USERNAME/ecommerce-backend \
             --set backend.image.tag=latest \
+            --set backend.image.pullPolicy=Always \
             --set frontend.enabled=false \
             --set database.enabled=false \
             --set ingress.enabled=false \
-            --wait \
             --timeout 10m
 
           echo "✅ Backend deployment successful!"
@@ -123,14 +123,17 @@ jobs:
           esac
 
           echo "📊 Checking backend pods..."
-          kubectl get pods -n $NAMESPACE -l app=ecommerce-backend
+          kubectl get pods -n $NAMESPACE -l tier=backend
 
           echo ""
           echo "⏳ Waiting for backend pods to be ready..."
-          kubectl wait --for=condition=ready pod \
-            -l app=ecommerce-backend \
-            -n $NAMESPACE \
-            --timeout=300s
+          kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE --timeout=300s || {
+            echo "❌ Deployment failed. Pod details:"
+            kubectl describe pods -n $NAMESPACE -l tier=backend
+            echo "--- Pod logs ---"
+            kubectl logs -n $NAMESPACE -l tier=backend --tail=50
+            exit 1
+          }
 
           echo "✅ Backend is running!"
         env:
