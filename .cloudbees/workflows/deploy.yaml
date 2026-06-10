@@ -116,7 +116,7 @@ jobs:
           fi
 
           # Deploy backend only (not full app)
-          helm upgrade --install ecommerce ./helm/ecommerce \
+          helm upgrade --install ecommerce-backend ./helm/ecommerce \
             --namespace $NAMESPACE \
             --values $VALUES_FILE \
             --set backend.image.repository=$DOCKERHUB_USERNAME/ecommerce-backend \
