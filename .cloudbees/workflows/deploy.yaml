@@ -108,21 +108,17 @@ jobs:
           echo "📦 Namespace: $NAMESPACE"
 
           # Determine values file based on environment
-          VALUES_FILE="helm/ecommerce/values-${ENVIRONMENT}.yaml"
+          VALUES_FILE="helm/ecommerce-backend/values-${ENVIRONMENT}.yaml"
           if [ ! -f "$VALUES_FILE" ]; then
-            VALUES_FILE="helm/ecommerce/values.yaml"
+            VALUES_FILE="helm/ecommerce-backend/values.yaml"
           fi
 
           # Deploy backend only (not full app)
-          helm upgrade --install ecommerce-backend ./helm/ecommerce \
+          helm upgrade --install ecommerce-backend ./helm/ecommerce-backend \
             --namespace $NAMESPACE \
             --values $VALUES_FILE \
-            --set backend.image.repository=$DOCKERHUB_USERNAME/ecommerce-backend \
-            --set backend.image.tag=latest \
-            --set backend.image.pullPolicy=Always \
-            --set frontend.enabled=false \
-            --set database.enabled=false \
-            --set ingress.enabled=false \
+            --set image.repository=$DOCKERHUB_USERNAME/ecommerce-backend \
+            --set image.tag=latest \
             --timeout 10m
 
           echo "✅ Backend deployment successful!"
