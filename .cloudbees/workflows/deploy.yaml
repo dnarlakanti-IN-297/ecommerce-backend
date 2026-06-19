@@ -17,17 +17,18 @@ on:
         type: string
         required: true
         description: "Kubernetes config for cluster access"
+    secrets:
+      DOCKERHUB_USERNAME:
+        required: true
+      DOCKERHUB_TOKEN:
+        required: false
 
 jobs:
   deploy-backend:
-    environment: ${{ inputs.environment }}
     env:
       IMAGE_TAG: ${{ inputs.artifact-id }}
       ENVIRONMENT: ${{ inputs.environment }}
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      GKE_CLUSTER: unifyintegration
-      GKE_ZONE: us-east1-b
-      GKE_PROJECT: unify-enterprise-reference
 
     steps:
       - name: Checkout infra repo
@@ -48,6 +49,7 @@ jobs:
           kubectl cluster-info
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Create namespace if not exists
         uses: docker://alpine:latest
@@ -71,6 +73,7 @@ jobs:
           echo "✅ Namespace $NAMESPACE ready"
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Cleanup old Helm releases
         uses: docker://alpine/helm:latest
@@ -89,17 +92,11 @@ jobs:
           esac
 
           helm uninstall ecommerce -n $NAMESPACE 2>/dev/null || true
-
-          for release in ecommerce-database ecommerce-backend ecommerce-frontend; do
-            STATUS=$(helm status $release -n $NAMESPACE 2>/dev/null | grep STATUS | awk '{print $2}')
-            if [ "$STATUS" = "pending-install" ] || [ "$STATUS" = "pending-upgrade" ] || [ "$STATUS" = "pending-rollback" ]; then
-              echo "🔄 Resetting stuck release: $release ($STATUS)"
-              kubectl delete secret -n $NAMESPACE -l owner=helm,name=$release 2>/dev/null || true
-            fi
-          done
+          kubectl delete secret -n $NAMESPACE -l owner=helm,name=ecommerce-backend 2>/dev/null || true
           echo "✅ Cleanup done"
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Deploy backend with Helm
         uses: docker://alpine/helm:latest
@@ -115,13 +112,11 @@ jobs:
           echo "📍 Environment: $ENVIRONMENT"
           echo "📦 Namespace: $NAMESPACE"
 
-          # Determine values file based on environment
           VALUES_FILE="helm/ecommerce-backend/values-${ENVIRONMENT}.yaml"
           if [ ! -f "$VALUES_FILE" ]; then
             VALUES_FILE="helm/ecommerce-backend/values.yaml"
           fi
 
-          # Deploy backend only (not full app)
           helm upgrade --install ecommerce-backend ./helm/ecommerce-backend \
             --namespace $NAMESPACE \
             --values $VALUES_FILE \
@@ -130,6 +125,10 @@ jobs:
             --timeout 10m
 
           echo "✅ Backend deployment successful!"
+        env:
+          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
       - name: Verify backend deployment
         uses: docker://alpine:latest
@@ -150,8 +149,6 @@ jobs:
           echo "📊 Checking backend pods..."
           kubectl get pods -n $NAMESPACE -l tier=backend
 
-          echo ""
-          echo "⏳ Waiting for backend pods to be ready..."
           kubectl rollout status deployment/ecommerce-backend -n $NAMESPACE --timeout=300s || {
             echo "❌ Deployment failed. Pod details:"
             kubectl describe pods -n $NAMESPACE -l tier=backend
@@ -163,6 +160,7 @@ jobs:
           echo "✅ Backend is running!"
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Test backend health
         uses: docker://alpine:latest
@@ -180,14 +178,10 @@ jobs:
             prod) NAMESPACE="ecommerce-prod" ;;
           esac
 
-          echo "🏥 Testing backend health endpoint..."
-
-          # Get backend service name
           BACKEND_POD=$(kubectl get pod -n $NAMESPACE -l app=ecommerce-backend -o jsonpath='{.items[0].metadata.name}')
-
-          # Test health endpoint
           kubectl exec -n $NAMESPACE $BACKEND_POD -- python3 -c "import urllib.request; print(urllib.request.urlopen('http://localhost:5000/health').read().decode())"
 
           echo "✅ Backend health check complete!"
         env:
           KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          ENVIRONMENT: ${{ inputs.environment }}
