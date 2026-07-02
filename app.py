@@ -4,6 +4,8 @@ from flask_cors import CORS
 from datetime import datetime
 import os
 
+from feature_flags import flags, init_feature_flags
+
 app = Flask(__name__)
 CORS(app)
 
@@ -15,6 +17,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# Feature management (CloudBees Unify) - initialized at import time so it
+# runs under both `python app.py` and gunicorn.
+init_feature_flags()
 
 # Models
 class Product(db.Model):
@@ -217,7 +223,7 @@ def get_order(order_id):
 
     items = OrderItem.query.filter_by(order_id=order_id).all()
 
-    return jsonify({
+    result = {
         'id': order.id,
         'total_amount': order.total_amount,
         'status': order.status,
@@ -228,6 +234,20 @@ def get_order(order_id):
             'quantity': item.quantity,
             'price': item.price
         } for item in items]
+    }
+
+    # Feature-flagged field, controlled live from CloudBees Unify.
+    if flags.enable_loyalty_points.is_enabled():
+        result['loyalty_points_earned'] = int(order.total_amount)
+
+    return jsonify(result)
+
+# Feature flags - read-only status, useful for confirming the CloudBees
+# Unify connection without needing direct access to the Unify dashboard.
+@app.route('/api/features', methods=['GET'])
+def get_features():
+    return jsonify({
+        'enable_loyalty_points': flags.enable_loyalty_points.is_enabled()
     })
 
 # Health check
