@@ -111,6 +111,27 @@ jobs:
           test-type: JUNIT
           results-path: test-results.xml
 
+      - name: Extract test summary
+        id: test-summary
+        uses: docker://alpine:latest
+        shell: sh
+        run: |
+          apk add --no-cache grep
+          TOTAL=$(grep -oP 'tests="\K[0-9]+' test-results.xml || echo "0")
+          FAILURES=$(grep -oP 'failures="\K[0-9]+' test-results.xml || echo "0")
+          ERRORS=$(grep -oP 'errors="\K[0-9]+' test-results.xml || echo "0")
+          PASSED=$((TOTAL - FAILURES - ERRORS))
+          echo "$TOTAL" > $CLOUDBEES_OUTPUTS/TOTAL_TESTS
+          echo "$PASSED" > $CLOUDBEES_OUTPUTS/PASSED_TESTS
+          echo "$FAILURES" > $CLOUDBEES_OUTPUTS/FAILED_TESTS
+
+      - name: Publish test evidence
+        uses: ./.cloudbees/components/publish-test-evidence
+        with:
+          total-tests: ${{ steps.test-summary.outputs.TOTAL_TESTS }}
+          passed-tests: ${{ steps.test-summary.outputs.PASSED_TESTS }}
+          failed-tests: ${{ steps.test-summary.outputs.FAILED_TESTS }}
+
   build:
     needs: test
     env:
