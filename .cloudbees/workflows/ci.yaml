@@ -91,7 +91,12 @@ jobs:
           pytest @subset.txt \
             -v \
             -o junit_family=legacy \
-            --junit-xml=test-results.xml || true
+            --junit-xml=test-results.xml \
+            --cov=app \
+            --cov=feature_flags \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term || true
 
           if [ ! -f test-results.xml ]; then
             echo "❌ test-results.xml NOT generated - tests did not run!"
