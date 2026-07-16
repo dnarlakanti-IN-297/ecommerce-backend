@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - developer
   workflow_dispatch:
 
 permissions:
@@ -14,81 +15,17 @@ permissions:
 
 jobs:
   test:
-    env:
-      SMART_TESTS_TOKEN: ${{ secrets.SMART_TESTS_TOKEN }}
-
     steps:
       - name: Checkout code
         uses: cloudbees-io/checkout@v1
-        with:
-          fetch-depth: 0  # full git history so Smart Tests can correlate changes to tests
 
-      - name: Verify Smart Tests connectivity
-        uses: docker://cloudbeesdemo/maven-st:v1
-        shell: sh
-        run: |
-          echo "Verifying Smart Tests configuration..."
-          smart-tests verify || true
-          echo "✅ Smart Tests verified"
-
-      - name: Record build with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        shell: sh
-        run: |
-          smart-tests record build --build ${{ cloudbees.run_id }} --source app=.
-          echo "✅ Build recorded: ${{ cloudbees.run_id }}"
-
-      - name: Record session with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        shell: sh
-        run: |
-          smart-tests record session --build ${{ cloudbees.run_id }} --observation --test-suite pytest-backend-tests > session.txt
-          cat session.txt
-          echo "✅ Session recorded"
-
-      - name: Collect tests with pytest
+      - name: Run tests with pytest
         uses: docker://python:3.11-slim
         shell: sh
         run: |
           pip install --no-cache-dir -r requirements.txt
-          echo "🔍 Collecting all tests with pytest..."
-          pytest --collect-only -qq tests/ 2>&1 | grep "::" > all_tests.txt || echo "tests/" > all_tests.txt
-          echo "📊 Total: $(wc -l < all_tests.txt | tr -d ' ') tests collected"
-
-      - name: Generate Smart Tests subset
-        uses: docker://cloudbeesdemo/maven-st:v1
-        shell: sh
-        run: |
-          echo "🎯 Generating Smart Tests subset..."
-          if smart-tests subset --session @session.txt --target 50% pytest < all_tests.txt > subset-full.txt 2>&1; then
-            echo "✅ Subset command succeeded"
-          else
-            echo "⚠️ Subset command failed, falling back to running all tests"
-            cat subset-full.txt
-            cp all_tests.txt subset-full.txt
-          fi
-          grep "::" subset-full.txt > subset.txt 2>/dev/null || cp all_tests.txt subset.txt
-
-          SUBSET_COUNT=$(wc -l < subset.txt | tr -d ' ')
-          TOTAL_COUNT=$(wc -l < all_tests.txt | tr -d ' ')
-          echo "📊 Tests: $SUBSET_COUNT / $TOTAL_COUNT"
-          if [ "$SUBSET_COUNT" -lt "$TOTAL_COUNT" ]; then
-            echo "🎯 Smart Tests created a subset - saving $((100 - SUBSET_COUNT * 100 / TOTAL_COUNT))% of test time"
-          else
-            echo "📚 Running all tests (learning phase or no changes detected)"
-          fi
-
-      - name: Run tests from Smart Tests subset
-        uses: docker://python:3.11-slim
-        shell: sh
-        run: |
-          pip install --no-cache-dir -r requirements.txt
-          echo "🧪 Running tests from Smart Tests subset..."
-          if [ ! -f subset.txt ]; then
-            echo "❌ subset.txt NOT found!"
-            exit 1
-          fi
-          pytest @subset.txt \
+          echo "🧪 Running backend test suite..."
+          pytest tests/ \
             -v \
             -o junit_family=legacy \
             --junit-xml=test-results.xml \
@@ -102,13 +39,6 @@ jobs:
             echo "❌ test-results.xml NOT generated - tests did not run!"
             exit 1
           fi
-
-      - name: Record test results with Smart Tests
-        uses: docker://cloudbeesdemo/maven-st:v1
-        shell: sh
-        run: |
-          smart-tests record tests --session @session.txt pytest test-results.xml
-          echo "✅ Test results recorded"
 
       - name: Publish test results
         uses: cloudbees-io/publish-test-results@v2

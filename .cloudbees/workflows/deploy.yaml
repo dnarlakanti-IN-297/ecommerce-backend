@@ -13,15 +13,13 @@ on:
         type: string
         required: true
         description: "Target environment (dev, staging, prod)"
-      kubeconfig:
-        type: string
-        required: true
-        description: "Kubernetes config for cluster access"
     secrets:
       DOCKERHUB_USERNAME:
         required: true
       DOCKERHUB_TOKEN:
         required: false
+      KUBECONFIG:
+        required: true
 
 jobs:
   deploy-backend:
@@ -48,7 +46,7 @@ jobs:
           echo "$KUBECONFIG_BASE64" | base64 -d > ~/.kube/config
           kubectl cluster-info
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Create namespace if not exists
@@ -72,7 +70,7 @@ jobs:
           kubectl get namespace $NAMESPACE || kubectl create namespace $NAMESPACE
           echo "✅ Namespace $NAMESPACE ready"
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Cleanup old Helm releases
@@ -95,7 +93,7 @@ jobs:
           kubectl delete secret -n $NAMESPACE -l owner=helm,name=ecommerce-backend 2>/dev/null || true
           echo "✅ Cleanup done"
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Deploy backend with Helm
@@ -126,7 +124,7 @@ jobs:
 
           echo "✅ Backend deployment successful!"
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
           IMAGE_TAG: ${{ inputs.artifact-id }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -160,7 +158,7 @@ jobs:
 
           echo "✅ Backend is running!"
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
 
       - name: Test backend health
@@ -184,5 +182,5 @@ jobs:
 
           echo "✅ Backend health check complete!"
         env:
-          KUBECONFIG_BASE64: ${{ inputs.kubeconfig }}
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG }}
           ENVIRONMENT: ${{ inputs.environment }}
