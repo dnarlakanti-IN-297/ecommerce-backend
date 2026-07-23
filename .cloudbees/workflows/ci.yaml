@@ -47,6 +47,38 @@ jobs:
           cat session.txt
           echo "✅ Session recorded"
 
+      - name: Collect tests with pytest
+        uses: docker://python:3.11-slim
+        shell: sh
+        run: |
+          pip install --no-cache-dir -r requirements.txt
+          echo "🔍 Collecting all tests with pytest..."
+          pytest --collect-only -qq tests/ 2>&1 | grep "::" > all_tests.txt || echo "tests/" > all_tests.txt
+          echo "📊 Total: $(wc -l < all_tests.txt | tr -d ' ') tests collected"
+
+      - name: Generate Smart Tests subset
+        uses: docker://cloudbeesdemo/maven-st:v1
+        shell: sh
+        run: |
+          echo "🎯 Generating Smart Tests subset..."
+          if smart-tests subset --session @session.txt --target 50% pytest < all_tests.txt > subset-full.txt 2>&1; then
+            echo "✅ Subset command succeeded"
+          else
+            echo "⚠️ Subset command failed, falling back to running all tests"
+            cat subset-full.txt
+            cp all_tests.txt subset-full.txt
+          fi
+          grep "::" subset-full.txt > subset.txt 2>/dev/null || cp all_tests.txt subset.txt
+
+          SUBSET_COUNT=$(wc -l < subset.txt | tr -d ' ')
+          TOTAL_COUNT=$(wc -l < all_tests.txt | tr -d ' ')
+          echo "📊 Tests: $SUBSET_COUNT / $TOTAL_COUNT"
+          if [ "$SUBSET_COUNT" -lt "$TOTAL_COUNT" ]; then
+            echo "🎯 Smart Tests created a subset - saving $((100 - SUBSET_COUNT * 100 / TOTAL_COUNT))% of test time"
+          else
+            echo "📚 Running all tests (learning phase or no changes detected)"
+          fi
+
       - name: Run tests with pytest
         uses: docker://python:3.11-slim
         shell: sh
