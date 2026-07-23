@@ -89,7 +89,7 @@ jobs:
             echo "❌ subset.txt NOT found!"
             exit 1
           fi
-          pytest @subset.txt \
+          pytest $(cat subset.txt) \
             -v \
             -o junit_family=legacy \
             --junit-xml=test-results.xml \
