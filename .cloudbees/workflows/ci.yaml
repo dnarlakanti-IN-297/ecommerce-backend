@@ -32,6 +32,21 @@ jobs:
           smart-tests verify || true
           echo "✅ Smart Tests verified"
 
+      - name: Record build with Smart Tests
+        uses: docker://cloudbeesdemo/maven-st:v1
+        shell: sh
+        run: |
+          smart-tests record build --build ${{ cloudbees.run_id }} --source app=.
+          echo "✅ Build recorded: ${{ cloudbees.run_id }}"
+
+      - name: Record session with Smart Tests
+        uses: docker://cloudbeesdemo/maven-st:v1
+        shell: sh
+        run: |
+          smart-tests record session --build ${{ cloudbees.run_id }} --observation --test-suite pytest-backend-tests > session.txt
+          cat session.txt
+          echo "✅ Session recorded"
+
       - name: Run tests with pytest
         uses: docker://python:3.11-slim
         shell: sh
