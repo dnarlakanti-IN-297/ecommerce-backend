@@ -15,9 +15,22 @@ permissions:
 
 jobs:
   test:
+    env:
+      SMART_TESTS_TOKEN: ${{ secrets.SMART_TESTS_TOKEN }}
+
     steps:
       - name: Checkout code
         uses: cloudbees-io/checkout@v1
+        with:
+          fetch-depth: 0  # full git history so Smart Tests can correlate changes to tests
+
+      - name: Verify Smart Tests connectivity
+        uses: docker://cloudbeesdemo/maven-st:v1
+        shell: sh
+        run: |
+          echo "Verifying Smart Tests configuration..."
+          smart-tests verify || true
+          echo "✅ Smart Tests verified"
 
       - name: Run tests with pytest
         uses: docker://python:3.11-slim
