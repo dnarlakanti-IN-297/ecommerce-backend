@@ -79,13 +79,17 @@ jobs:
             echo "📚 Running all tests (learning phase or no changes detected)"
           fi
 
-      - name: Run tests with pytest
+      - name: Run tests from Smart Tests subset
         uses: docker://python:3.11-slim
         shell: sh
         run: |
           pip install --no-cache-dir -r requirements.txt
-          echo "🧪 Running backend test suite..."
-          pytest tests/ \
+          echo "🧪 Running tests from Smart Tests subset..."
+          if [ ! -f subset.txt ]; then
+            echo "❌ subset.txt NOT found!"
+            exit 1
+          fi
+          pytest @subset.txt \
             -v \
             -o junit_family=legacy \
             --junit-xml=test-results.xml \
@@ -99,6 +103,13 @@ jobs:
             echo "❌ test-results.xml NOT generated - tests did not run!"
             exit 1
           fi
+
+      - name: Record test results with Smart Tests
+        uses: docker://cloudbeesdemo/maven-st:v1
+        shell: sh
+        run: |
+          smart-tests record tests --session @session.txt pytest test-results.xml
+          echo "✅ Test results recorded"
 
       - name: Publish test results
         uses: cloudbees-io/publish-test-results@v2
