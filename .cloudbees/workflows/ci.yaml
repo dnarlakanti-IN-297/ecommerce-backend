@@ -62,7 +62,7 @@ jobs:
         shell: sh
         run: |
           echo "🎯 Generating Smart Tests subset..."
-          if smart-tests subset --session @session.txt --confidence 80% pytest < all_tests.txt > subset-full.txt 2>&1; then
+          if smart-tests subset --session @session.txt --confidence 90% pytest < all_tests.txt > subset-full.txt 2>&1; then
             echo "✅ Subset command succeeded"
           else
             echo "⚠️ Subset command failed, falling back to running all tests"
