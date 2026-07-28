@@ -44,7 +44,7 @@ jobs:
         uses: docker://cloudbeesdemo/maven-st:v1
         shell: sh
         run: |
-          smart-tests record session --build ${{ cloudbees.run_id }} --observation --test-suite pytest-backend-tests > session.txt
+          smart-tests record session --build ${{ cloudbees.run_id }} --test-suite pytest-backend-tests > session.txt
           cat session.txt
           echo "✅ Session recorded"
 
