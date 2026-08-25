@@ -1,0 +1,104 @@
+name: Smart Tests OIDC auth (PoC)
+
+# Standalone GitHub Actions workflow to try tokenless (OIDC) auth to
+# CloudBees Smart Tests, per:
+# https://docs.cloudbees.com/docs/cloudbees-smart-tests/latest/send-data-to-smart-tests/set-up-smart-tests/migration-to-github-oidc-auth
+#
+# This does not touch the existing CloudBees Unify CI
+# (.cloudbees/workflows/ci.yaml), which still authenticates with the
+# SMART_TESTS_TOKEN secret.
+#
+# Prerequisite: CloudBees Support must enable tokenless auth for this
+# org/workspace/repo before this workflow can authenticate successfully.
+
+on:
+  push:
+    branches:
+      - smart-tests-github-oidc-auth
+  workflow_dispatch:
+
+env:
+  SMART_TESTS_ORGANIZATION: ${{ vars.SMART_TESTS_ORGANIZATION }}
+  SMART_TESTS_WORKSPACE: ${{ vars.SMART_TESTS_WORKSPACE }}
+  EXPERIMENTAL_GITHUB_OIDC_TOKEN_AUTH: 1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full git history so Smart Tests can correlate changes to tests
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Smart Tests CLI
+        run: pip3 install --user "smart-tests~=1.0"
+
+      - name: Verify Smart Tests connectivity (OIDC)
+        run: |
+          export PATH=~/.local/bin:$PATH
+          smart-tests verify
+
+      - name: Install app dependencies
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Record build with Smart Tests
+        run: |
+          export PATH=~/.local/bin:$PATH
+          smart-tests record build --build "$GITHUB_RUN_ID" --source app=.
+
+      - name: Record session with Smart Tests
+        run: |
+          export PATH=~/.local/bin:$PATH
+          smart-tests record session --build "$GITHUB_RUN_ID" --test-suite pytest-backend-tests > session.txt
+          cat session.txt
+
+      - name: Collect tests with pytest
+        run: |
+          pytest --collect-only -qq tests/ 2>&1 | grep "::" > all_tests.txt || echo "tests/" > all_tests.txt
+          echo "Total: $(wc -l < all_tests.txt | tr -d ' ') tests collected"
+
+      - name: Generate Smart Tests subset
+        run: |
+          export PATH=~/.local/bin:$PATH
+          if smart-tests subset --session @session.txt --confidence 90% pytest < all_tests.txt > subset-full.txt 2>&1; then
+            echo "Subset command succeeded"
+          else
+            echo "Subset command failed, falling back to running all tests"
+            cat subset-full.txt
+            cp all_tests.txt subset-full.txt
+          fi
+          grep "::" subset-full.txt > subset.txt 2>/dev/null || cp all_tests.txt subset.txt
+
+      - name: Run tests from Smart Tests subset
+        run: |
+          pytest $(cat subset.txt) \
+            -v \
+            -o junit_family=legacy \
+            --junit-xml=test-results.xml || true
+
+          if [ ! -f test-results.xml ]; then
+            echo "test-results.xml NOT generated - tests did not run!"
+            exit 1
+          fi
+
+      - name: Record test results with Smart Tests
+        run: |
+          export PATH=~/.local/bin:$PATH
+          smart-tests record tests --session @session.txt pytest test-results.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results.xml
