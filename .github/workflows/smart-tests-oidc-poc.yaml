@@ -35,13 +35,18 @@ jobs:
         with:
           fetch-depth: 0 # full git history so Smart Tests can correlate changes to tests
 
-      - name: Set up Python
+      - name: Set up Python for Smart Tests CLI
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install Smart Tests CLI
         run: pip3 install --user --upgrade smart-tests-cli
+
+      - name: Set up Python for app tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Verify Smart Tests connectivity (OIDC)
         run: |
