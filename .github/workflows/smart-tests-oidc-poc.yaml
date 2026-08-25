@@ -41,7 +41,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Smart Tests CLI
-        run: pip3 install --user "smart-tests~=1.0"
+        run: pip3 install --user --upgrade smart-tests-cli
 
       - name: Verify Smart Tests connectivity (OIDC)
         run: |
