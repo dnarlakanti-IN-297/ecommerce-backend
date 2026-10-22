@@ -158,6 +158,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Backend Image
+        kind: build
         uses: cloudbees-io/kaniko@v1
         with:
           context: .
