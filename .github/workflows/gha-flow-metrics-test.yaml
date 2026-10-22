@@ -1,0 +1,42 @@
+name: GHA flow metrics test
+
+# Registers build and deployment metadata with CloudBees Unify only; nothing is built or deployed.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-id: ${{ steps.register-build.outputs.cbp_artifact_id }}
+    steps:
+      - name: Register build artifact in Unify
+        id: register-build
+        uses: cloudbees-io-gha/register-build-artifact@v3
+        with:
+          name: ecommerce-backend-gha-test
+          version: ${{ github.sha }}
+          url: ghcr.io/${{ github.repository }}/ecommerce-backend-gha-test:${{ github.sha }}
+          commit: ${{ github.sha }}
+          ref: ${{ github.ref }}
+          repository-url: ${{ github.server_url }}/${{ github.repository }}.git
+          type: docker
+          label: gha-test
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Register deployment in Unify
+        uses: cloudbees-io-gha/register-deployed-artifact@v1
+        with:
+          target-environment: dev
+          artifact-id: ${{ needs.build.outputs.artifact-id }}
+          labels: gha-test
