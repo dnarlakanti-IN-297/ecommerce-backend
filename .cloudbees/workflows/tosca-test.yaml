@@ -1,0 +1,19 @@
+apiVersion: automation.cloudbees.io/v1alpha1
+kind: workflow
+name: tosca-test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tosca:
+    steps:
+      - name: Test with Tosca
+        uses: https://github.com/cloudbees-io/tosca-run-job@v1
+        with:
+          tosca_cloud_base_url: "https://cloudbees.my.tricentis.com"
+          tosca_auth_url: "https://cloudbees-tricentis.okta.com/oauth2/default/v1/token"
+          client_id: ${{ secrets.TOSCA_CLIENT_ID }}
+          client_secret: ${{ secrets.TOSCA_CLIENT_SECRET }}
+          playlist_name: "cloudbees-test-playlist"
+          workspace: "Cloudbees-test"
