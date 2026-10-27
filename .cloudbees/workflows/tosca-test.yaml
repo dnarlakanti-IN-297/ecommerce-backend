@@ -17,3 +17,5 @@ jobs:
           client_secret: ${{ secrets.TOSCA_CLIENT_SECRET }}
           playlist_name: "cloudbees-test-playlist"
           workspace: "Cloudbees-test"
+          filename: "tosca-results.json"
+
