@@ -8,6 +8,15 @@ on:
 jobs:
   tosca:
     steps:
+      - name: Check Tosca secrets are set
+        uses: docker://alpine:3.20
+        shell: sh
+        run: |
+          id='${{ secrets.TOSCA_CLIENT_ID }}'
+          sec='${{ secrets.TOSCA_CLIENT_SECRET }}'
+          echo "client id length: ${#id}"
+          echo "client secret length: ${#sec}"
+
       - name: Test with Tosca
         uses: https://github.com/cloudbees-io/tosca-run-job@v1
         with:
@@ -18,4 +27,3 @@ jobs:
           playlist_name: "cloudbees-test-playlist"
           workspace: "Cloudbees-test"
           filename: "tosca-results.json"
-
